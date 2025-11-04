@@ -1,0 +1,3 @@
+# Encapsulation
+
+*Placeholder for content.*

@@ -1,0 +1,3 @@
+# Abstraction
+
+*Placeholder for content.*

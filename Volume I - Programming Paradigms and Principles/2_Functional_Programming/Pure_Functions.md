@@ -1,0 +1,100 @@
+## Definition and Criteria
+
+In functional programming, a **pure function** is one that has no side effects and returns the same result whenever it’s called with the same arguments. More formally, _a pure function does not modify any external state or depend on it; it only uses its input parameters to compute its result_. In other words, **a pure function’s behavior is fully determined by its inputs**[antsitvlad.medium.com](https://antsitvlad.medium.com/introduction-to-functional-programming-immutability-side-effects-pure-functions-hofs-a3163494033#:~:text=A%20pure%20function%20can%20be,criteria%20to%20be%20considered%20pure). There are three key criteria that define a pure function[antsitvlad.medium.com](https://antsitvlad.medium.com/introduction-to-functional-programming-immutability-side-effects-pure-functions-hofs-a3163494033#:~:text=,only%20depends%20on%20its%20input):
+
+- **Deterministic Output:** Given the same inputs, the function _always_ returns the same output. It is entirely predictable (sometimes called _functional determinism_).
+    
+- **No Side Effects:** The function does not cause any observable change in the outside world when called. This means it doesn’t modify any global variables, doesn’t change any of its input arguments (if they are mutable objects), doesn’t perform I/O like printing to the console or writing to a file, etc.
+    
+- **Referential Transparency:** This is a consequence of the above two points – an expression calling the function can be replaced with the function’s return value, and the program’s behavior would remain the same[snipcart.com](https://snipcart.com/blog/functional-programming-paradigm-concepts#:~:text=The%20sole%20outside%20interaction%20a,is%20with%20its%20return%20value). The function call is “transparent” in that it can be treated as equal to its result for reasoning purposes.
+    
+
+Another way to phrase this: _a pure function is a computational analogue of a mathematical function_. In math, if you have f(x) = x², whenever x is 3, f(x) is 9. It doesn’t matter when or where you evaluate it, and evaluating it doesn’t change any state – it just produces 9. We want the functions in our programs to work like that as much as possible.
+
+According to the definition above (and sources in functional programming literature), a function must meet all these criteria to be considered pure[antsitvlad.medium.com](https://antsitvlad.medium.com/introduction-to-functional-programming-immutability-side-effects-pure-functions-hofs-a3163494033#:~:text=A%20pure%20function%20can%20be,criteria%20to%20be%20considered%20pure). For example, a function that reads from a global configuration variable is _not_ pure, because the value it returns might change if the global variable changes (even if its explicit arguments stay the same). Similarly, a function that modifies one of its arguments (say, it takes a list and sorts it in place) is not pure, because it has a side effect on that argument.
+
+Purity is a spectrum in real-world programming – many functions have some side effects. But the goal in functional programming is to maximize purity: make as many functions as possible pure, and isolate the impure parts.
+
+## Side Effects and Shared State
+
+A **side effect** is any interaction with something outside the function’s own scope that occurs during the function’s execution. Common side effects include: modifying a global or non-local variable, altering a mutable data structure that was passed by reference, performing I/O (printing to stdout, reading input, writing to a file, network calls), or calling other functions that themselves have side effects. Side effects are what make reasoning about programs difficult, because a function call doesn’t just _return_ something – it might also do something extra that isn’t immediately visible from its interface.
+
+Pure functions, by definition, eliminate side effects. If you call a pure function, the _only_ thing that happens is that you get a return value. As one author succinctly put it: “The sole outside interaction a function call can have is with its return value”[snipcart.com](https://snipcart.com/blog/functional-programming-paradigm-concepts#:~:text=The%20sole%20outside%20interaction%20a,is%20with%20its%20return%20value). This means if you replaced a call to the function with its result (which is what referential transparency allows), nothing changes in the program.
+
+A major source of side effects is **shared state** – variables or data that exist in a broader scope than the function (global variables, static class members, or any object that might be accessed and modified by multiple functions). If a function reads from or writes to shared state, it’s not pure[antsitvlad.medium.com](https://antsitvlad.medium.com/introduction-to-functional-programming-immutability-side-effects-pure-functions-hofs-a3163494033#:~:text=Shared%20State%20). For example, consider:
+
+`external_counter = 0  def impure_increment(x):     # increment external state (side effect)     global external_counter     external_counter += 1     return x + 1`
+
+This `impure_increment` function is not pure because it modifies a global variable `external_counter` (a side effect) each time it’s called. Calling `impure_increment(5)` once vs twice will yield the same return value (6) both times, but it leaves behind a different state in `external_counter`. Thus, you cannot substitute the call with just its return value, because doing it once vs twice has different overall effects on the program. By contrast, a pure version would just return `x+1` and not touch any external state.
+
+Side effects also include mutating the arguments that are passed in. For instance:
+
+`def impure_sort(lst):     lst.sort()  # sorts in place (side effect on input list)     return lst`
+
+This function is impure because it changes the list that was given to it. If that list existed outside the function (in the caller’s scope), the caller will observe that it’s now sorted, which is a side effect of calling the function. A pure version could return a _new_ sorted list and leave the original untouched (e.g., using `sorted()` in Python which returns a new list). In general, **mutating inputs** is a side effect.
+
+Another classic example: any function that does an I/O operation (say, `print`, logging, writing to disk, making a web request) cannot be pure, because each call influences the outside world or depends on it. Even reading the current time or a random number generator breaks purity – the function could return different results each time even with the same input, because it depends on something external like the system clock or RNG state.
+
+In summary, to avoid side effects, a function should use only its given arguments and possibly some local temporary variables it creates internally, but it should not read or write anything that persists beyond the function call. If it needs additional information (like a config setting), that information should be passed _in_ as an argument, so the function is still self-contained and deterministic for given inputs.
+
+Avoiding shared state and side effects often goes hand-in-hand with **immutability** (covered in [[Immutability and Recursion]]). If data is immutable, you can’t accidentally create side effects by modifying that data – you’re forced to create new data, which usually means returning it (which is an output, not a side effect) rather than altering something in-place.
+
+## Examples: Pure vs. Impure Functions
+
+Let’s illustrate the difference between pure and impure functions with some Python examples.
+
+**Impure function example:**
+
+`# A global variable for demonstration purposes global_list = []  def impure_append(item):     # This function appends to a global list (side effect on global state)     global global_list     global_list.append(item)`
+
+The `impure_append` function above modifies `global_list`, which is defined outside it. This side effect means the function is not pure. Calling `impure_append(5)` will change the state of `global_list`. If you call it again, it will change the state again. The function’s output (it actually returns `None` implicitly) isn’t the whole story – it has an effect beyond just returning a value.
+
+**Pure function example (equivalent goal):**
+
+`def pure_append(lst, item):     # This returns a new list with the item appended, leaving the original list unchanged     return lst + [item]`
+
+The `pure_append` function takes a list and an item and returns a new list that is the result of appending the item. It does **not** modify the input list `lst` – it creates a new list. Given the same `lst` and `item` inputs, it will always produce the same output list, and it doesn’t matter what the state of any global variables is; it also doesn’t alter any global state or its input. So `pure_append` is pure.
+
+**Impure vs Pure in action:**
+
+`global_list = [1, 2, 3] impure_append(4) print(global_list)        # Output: [1, 2, 3, 4]  (global_list was modified)  original = [1, 2, 3] new_list = pure_append(original, 4) print(original)           # Output: [1, 2, 3] (original list unchanged) print(new_list)           # Output: [1, 2, 3, 4] (new list returned by the function)`
+
+After calling `impure_append(4)`, the state of `global_list` changed – that’s a lasting side effect. But after calling `pure_append`, the original list remains the same, and we have to capture the returned result to get the new list. If we don’t use the result, calling `pure_append` has no effect at all (it doesn’t print, doesn’t modify anything; it just computes and returns).
+
+Another example: consider a function that calculates the sum of a list of numbers.
+
+- **Pure version:** `def sum_list(nums): return sum(nums)` – this is pure (assuming Python’s built-in `sum` is internally not doing weird side effects, which it isn’t).
+    
+- **Impure version:** `def sum_list_and_log(nums): total = sum(nums); print(f"Total is {total}"); return total` – this one is impure because of the `print` (a side effect). It returns the same value for the same input, but it also does an additional action. You couldn’t call it in a context where you needed it to be referentially transparent, because replacing `sum_list_and_log(nums)` with the number would remove the logging behavior.
+    
+
+It’s important to realize that _any_ interaction outside the function’s scope is a side effect. Reading a global configuration, writing to a database, mutating an argument, raising an exception intentionally, or even calling `random.random()` (which draws from global state of the RNG) – all these mean the function isn’t purely a function of its inputs.
+
+By contrast, functions like math operations (`math.sqrt(x)`), string operations that create new strings, or a function that purely computes something (like `compute_factorial(n)` that just uses recursion or loops internally but doesn’t touch global state) can be pure.
+
+## Benefits of Pure Functions
+
+Why do we care about pure functions? There are several compelling reasons:
+
+- **Ease of Testing:** Pure functions are extremely easy to unit test. Given an input, you just check that the output is what you expect. You don’t need to set up elaborate context or worry about external dependencies. There’s no hidden state to consider. This predictability is exactly what one source highlights as _predictability_: pure functions are easier to test and debug[medium.com](https://medium.com/@denis.volokh/functional-vs-imperative-programming-in-python-a-practical-guide-aba1eb40652d#:~:text=Advantages%20of%20Functional%20Programming%3A). If a pure function isn’t working, you know it’s a logic issue within the function, not because some external state was wrong or some interaction failed.
+    
+- **Reasoning and Debugging:** With pure functions, you can apply _equational reasoning_. Because of referential transparency, you can mentally (or mechanically) replace function calls with their outputs. This makes it easier to understand code – it’s like simplifying an equation. When debugging, you don’t have to trace a lot of mutable state changes; you can focus on the transformation each function applies. As an author noted, using functions in a pure way “decreases heavily the amount of information your brain has to load” to understand the logic[snipcart.com](https://snipcart.com/blog/functional-programming-paradigm-concepts#:~:text=The%20sole%20outside%20interaction%20a,is%20with%20its%20return%20value). Each function can be understood and verified independently.
+    
+- **No Hidden Dependencies:** If a function is pure, everything that influences its result is listed in its parameters. You don’t have to wonder, “does this function secretly use some global config or environment variable?” This makes code more readable and _self-documenting_. The function’s signature tells you everything you need to know about what it uses. There are no spooky action-at-a-distance effects where calling function A somehow changes something that function B cares about. This also means you can reorder calls or run them in parallel safely when they’re pure, which is great for optimization and concurrency.
+    
+- **Referential Transparency (Refactoring):** Referential transparency means you can refactor code without changing its meaning. For example, suppose you have `y = f(x) + f(x)`. If `f` is pure, you can refactor this to `tmp = f(x); y = tmp + tmp` and the result will be the same (aside from possibly computing `f(x)` once instead of twice for performance). You could even cache `f(x)` in a dictionary (memoization) to avoid recomputation – since you know `f(x)` will always be the same, caching won’t change the behavior, just the performance. You can only do these kinds of transformations if `f` is pure; if `f` had side effects, calling it twice vs once could make a difference beyond just the return value (for instance, if `f` prints something, calling it twice prints twice). Pure functions thus enable safe optimizations and restructuring. Many compiler optimizations in functional languages (and functional aspects of other languages) rely on this – they can eliminate duplicate calls, reorder evaluations, or parallelize calls, because they know those calls are independent and repeatable.
+    
+- **Concurrency and Parallelism:** As mentioned briefly, pure functions shine in concurrent contexts. If you have multiple pure functions to execute, you can do so in any order or concurrently, and the result will be the same as if you did them one at a time in some order. There’s no shared state to corrupt. This simplifies multi-threaded code a lot. For example, MapReduce (a big-data processing paradigm) heavily uses pure functions: mapping (applying a pure function to many pieces of data in parallel) and reducing (combining results with a pure function) can be distributed across many machines, because each operation is independent. In Python, using threads or processes can be complicated by shared memory and the GIL, but conceptually, if you had a bunch of pure computations to do, you could distribute them across threads/processes without needing locks or other synchronization. As one advantage listed, absence of shared state means easier parallelization[medium.com](https://medium.com/@denis.volokh/functional-vs-imperative-programming-in-python-a-practical-guide-aba1eb40652d#:~:text=1,be%20easily%20combined%20and%20reused).
+    
+- **Memoization and Caching:** If a function is pure, you can memoize it (cache its results for given inputs) and be confident that the cache will remain valid. This is extremely useful for performance. Many functional languages or libraries offer automatic memoization for pure functions. In Python, for instance, the `functools.lru_cache` decorator can be added to a function to cache recent results – but this only makes sense if the function is effectively pure (or at least, idempotent for the same inputs). For example, if you have a pure but expensive function `compute_something(n)`, you can cache its outputs so that the second time you call `compute_something(1000)` it doesn’t recompute everything. If the function weren’t pure (say it depended on some external HTTP request), caching might return outdated results if the external world changed. Pure functions guarantee that caching is safe and won’t lead to inconsistencies.
+    
+- **Composition and Reusability:** Pure functions are building blocks that can be freely combined. Since calling them doesn’t trigger side effects, the only thing that matters is feeding the right inputs and using the output. This makes it easy to create **function pipelines** or to use higher-order functions to assemble complex operations. In functional programming, you often create small pure utilities and then _compose_ them in various ways to solve different problems. This leads to highly readable code – for example, a data processing pipeline might read like: `result = data |> filter(is_valid) |> map(transform) |> reduce(combine)` (pseudocode for chaining operations). Each part is a pure function, and you can trust each to do its piece without interfering with others.
+    
+- **Fewer Bugs from Mutable State:** We’ve touched on this, but it bears repeating as a direct benefit: pure functions help avoid bugs that come from mutable shared state and side effects. If function A and function B both operate on some `global_dict` and one of them changes it unexpectedly, it can cause very subtle bugs in an imperative program. Pure functions don’t do that – if there’s a bug, it’s local to the function’s logic. This localization of potential bugs makes debugging and maintenance easier. A study of large codebases might show that a significant percentage of defects arise from unintended side effects or state issues (null pointer errors, race conditions, stale data, etc.). Functional programming (to the extent it’s adopted) directly tackles those.
+    
+
+Of course, no real program can be 100% pure (at some point you need to interact with the world, or else your program would do nothing observable). However, by following a functional style, we aim to make the **core logic** of our programs as pure as possible, and confine side effects to the boundaries (for instance, reading input, then doing pure processing, then writing output). This separation is sometimes called the “functional core, imperative shell” approach: the idea is that your business logic can be pure and easy to test, and the shell of the program (which deals with user interface, file systems, network, etc.) is the only part that deals with effects.
+
+Adopting this approach in a language like Python can greatly improve code quality. It doesn’t require abandoning all imperative constructs, but rather consciously deciding what can be made pure. For instance, if you’re writing a function that analyzes some data, you might decide that the function will **not** itself print anything or modify globals – it will just return a result (pure). The code that calls this function might print the result or store it somewhere (impure, but that’s at a higher level). By doing this, you’ve made the analysis function easier to test (just check return values) and reuse (maybe later you want to use the analysis in a different context, not printing but sending over network – you won’t have to change the function if it never printed in the first place).
+
+To recap, **pure functions** are a central concept in functional programming due to their predictability, transparency, and composability. In the next sections, we will see how avoiding mutable state (see [[Immutability and Recursion]]) supports writing pure functions, and how even the theoretical model of computation (the lambda calculus, in [[Lambda Calculus]]) embraces purity. The benefits discussed here – easier reasoning, testing, parallelism, etc. – will reappear as themes when comparing functional and imperative paradigms in [[Functional vs Imperative]]. Embracing pure functions where possible can lead to cleaner and more reliable code, regardless of programming language.
